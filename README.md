@@ -105,7 +105,7 @@ uvicorn app.main:app --reload --port 8000
 docker-compose up --build
 ```
 
-The API will be available at **http://localhost:8000**.
+The API will be available at ** [http://localhost:8000/docs] **.
 
 ---
 
