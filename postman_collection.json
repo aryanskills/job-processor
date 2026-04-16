@@ -1,0 +1,385 @@
+{
+  "info": {
+    "name": "Background Job Processor API",
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Complete Postman collection for the Background Job Processor built with FastAPI.\n\n## Setup\n1. Import this collection into Postman\n2. Set the `base_url` variable to your server (default: `http://localhost:8000`)\n3. Run requests in order or use the Collection Runner\n\n## Flow\n1. Submit a job → note the returned `id`\n2. Poll the status endpoint until `completed` or `failed`\n3. Explore list, stats, and cancel endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Base URL of the running API server"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string",
+      "description": "Auto-populated by the Submit Job request"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Root",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Service info and links."
+          },
+          "response": []
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Returns {\"status\": \"healthy\"} when the service is up."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Submit Job (full payload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('job_id', json.id);",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Has id', () => pm.expect(json.id).to.be.a('string'));",
+                  "pm.test('Status is pending', () => pm.expect(json.status).to.eql('pending'));",
+                  "console.log('Saved job_id:', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"generate-report\",\n  \"payload\": {\n    \"report_type\": \"monthly\",\n    \"year\": 2025,\n    \"format\": \"pdf\"\n  },\n  \"priority\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", ""]
+            },
+            "description": "Submit a new background job. The response includes the assigned UUID. The job_id collection variable is automatically set for use in subsequent requests."
+          },
+          "response": [
+            {
+              "name": "201 Created – Job Submitted",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"generate-report\",\n  \"payload\": { \"report_type\": \"monthly\", \"year\": 2025, \"format\": \"pdf\" },\n  \"status\": \"pending\",\n  \"result\": null,\n  \"error\": null,\n  \"priority\": 3,\n  \"created_at\": \"2025-01-15T10:00:00Z\",\n  \"started_at\": null,\n  \"completed_at\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Submit Job (minimal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Payload is null', () => pm.expect(pm.response.json().payload).to.be.null);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"send-email\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", ""]
+            },
+            "description": "Submit a job with only a name — payload and priority are optional."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Job (invalid – empty name)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", ""]
+            },
+            "description": "Demonstrates validation: name must be at least 1 character."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has status field', () => pm.expect(json.status).to.be.a('string'));",
+                  "console.log('Current job status:', json.status);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/{{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", "{{job_id}}"]
+            },
+            "description": "Fetch full details for a specific job. Poll this endpoint every few seconds to track progress from pending → in_progress → completed/failed."
+          },
+          "response": [
+            {
+              "name": "200 OK – Job In Progress",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"generate-report\",\n  \"payload\": { \"report_type\": \"monthly\", \"year\": 2025 },\n  \"status\": \"in_progress\",\n  \"result\": null,\n  \"error\": null,\n  \"priority\": 3,\n  \"created_at\": \"2025-01-15T10:00:00Z\",\n  \"started_at\": \"2025-01-15T10:00:01Z\",\n  \"completed_at\": null\n}"
+            },
+            {
+              "name": "200 OK – Job Completed",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"generate-report\",\n  \"payload\": { \"report_type\": \"monthly\", \"year\": 2025 },\n  \"status\": \"completed\",\n  \"result\": \"Job 'generate-report' completed successfully. Processed payload keys: ['report_type', 'year', 'format'].\",\n  \"error\": null,\n  \"priority\": 3,\n  \"created_at\": \"2025-01-15T10:00:00Z\",\n  \"started_at\": \"2025-01-15T10:00:01Z\",\n  \"completed_at\": \"2025-01-15T10:00:08Z\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"detail\": \"Job with id 'bad-id' was not found.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Job – Not Found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error detail present', () => pm.expect(pm.response.json().detail).to.include('not found'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/nonexistent-job-id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", "nonexistent-job-id"]
+            },
+            "description": "Demonstrates 404 error handling for an invalid job ID."
+          },
+          "response": []
+        },
+        {
+          "name": "List All Jobs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has total and items', () => {",
+                  "  pm.expect(json.total).to.be.a('number');",
+                  "  pm.expect(json.items).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/?skip=0&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", ""],
+              "query": [
+                { "key": "skip", "value": "0", "description": "Offset for pagination" },
+                { "key": "limit", "value": "20", "description": "Max results (1-100)" }
+              ]
+            },
+            "description": "Returns a paginated list of all jobs ordered by priority (desc) then creation time (asc)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Jobs – Filter by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/?status=completed&skip=0&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", ""],
+              "query": [
+                { "key": "status", "value": "completed", "description": "One of: pending, in_progress, completed, failed, cancelled" },
+                { "key": "skip", "value": "0" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Filter jobs by status. Try: pending | in_progress | completed | failed | cancelled"
+          },
+          "response": []
+        },
+        {
+          "name": "Job Statistics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const fields = ['total','pending','in_progress','completed','failed','cancelled'];",
+                  "fields.forEach(f => pm.test('Has ' + f, () => pm.expect(json[f]).to.be.a('number')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", "stats"]
+            },
+            "description": "Aggregate counts of all jobs grouped by status."
+          },
+          "response": [
+            {
+              "name": "200 OK – Stats",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"total\": 42,\n  \"pending\": 5,\n  \"in_progress\": 3,\n  \"completed\": 30,\n  \"failed\": 2,\n  \"cancelled\": 2\n}"
+            }
+          ]
+        },
+        {
+          "name": "Cancel Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Cancelled message', () => pm.expect(pm.response.json().message).to.include('cancelled'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/{{job_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", "{{job_id}}", "cancel"]
+            },
+            "description": "Cancel a pending or in-progress job. Returns 409 if already in a terminal state (completed/failed/cancelled)."
+          },
+          "response": [
+            {
+              "name": "200 OK – Cancelled",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"message\": \"Job '550e8400-e29b-41d4-a716-446655440000' has been cancelled.\"\n}"
+            },
+            {
+              "name": "409 Conflict – Already Terminal",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"detail\": \"Job '550e8400-e29b-41d4-a716-446655440000' is already cancelled or completed and cannot be modified.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Cancel Already-Cancelled Job (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/jobs/{{job_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "jobs", "{{job_id}}", "cancel"]
+            },
+            "description": "Run this immediately after the Cancel Job request to demonstrate the 409 Conflict response."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

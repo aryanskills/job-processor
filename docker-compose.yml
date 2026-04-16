@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: job_processor_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./jobs.db
+      - JOB_MIN_DELAY=5
+      - JOB_MAX_DELAY=10
+      - JOB_FAILURE_RATE=0.1
+    volumes:
+      # Persist the SQLite database across container restarts
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
