@@ -82,7 +82,7 @@ POST /api/v1/jobs/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/job-processor.git
+git clone https://github.com/aryanskills/job-processor.git
 cd job-processor
 
 # 2. Create and activate a virtual environment
